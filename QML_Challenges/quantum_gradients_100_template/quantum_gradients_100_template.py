@@ -36,11 +36,23 @@ def parameter_shift(weights):
         return qml.expval(qml.PauliY(0) @ qml.PauliZ(2))
 
     gradient = np.zeros_like(weights)
-
+    
     # QHACK #
-    #
+    # 
+    s = np.pi/2
+    shifts = weights.copy()
+    
+    N,M = gradient.shape
+    for i in range(N):
+        for j in range(M):
+            shifts = weights.copy()
+            shifts[i,j] += s
+            forward = circuit(shifts)
+            shifts[i,j] -= s * 2
+            backward = circuit(shifts)
+            gradient[i,j] = (forward-backward)/2
     # QHACK #
-
+    
     return gradient
 
 

@@ -46,9 +46,48 @@ def gradient_200(weights, dev):
     hessian = np.zeros([5, 5], dtype=np.float64)
 
     # QHACK #
+    s = np.pi/2
 
+    N = 5
+    shift_grads = weights.copy()
+    mid = circuit(shift_grads)
+    mid *= 2
+    for i in range(N):
+        shift_grads = weights.copy()
+        
+        
+        shift_grads[i] += s
+        forward = circuit(shift_grads)
+        
+        shift_grads[i] -= 2* s
+        backward = circuit(shift_grads)
+        
+        
+        hessian[i,i] = (forward+backward-mid) /(2 * np.sin(s)**2)
+        gradient[i]= (forward-backward) /(2* np.sin(s)**2 )
+ 
+        for j in range(i+1,N):
+            shifts = weights.copy()
+            shifts[i] += s
+            shifts[j] += s
+            forward1 = circuit(shifts)
+
+            shifts[i] -= s * 2
+            shifts[j] -= s * 2
+            forward2 = circuit(shifts)
+
+            shifts[i] += s * 2
+            backward1 = circuit(shifts)
+
+            shifts[i] -= s * 2
+            shifts[j] += s * 2
+            backward2 = circuit(shifts)
+
+            hessian[i,j] = (forward1+forward2 - (backward1+backward2))/ ( 4 * (np.sin(s) ** 2))
+            hessian[j,i] = (forward1+forward2 - (backward1+backward2))/ ( 4 * (np.sin(s) ** 2))
+            
     # QHACK #
-
+    
     return gradient, hessian, circuit.diff_options["method"]
 
 
