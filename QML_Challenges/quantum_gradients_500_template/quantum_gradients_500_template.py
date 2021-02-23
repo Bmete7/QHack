@@ -2,7 +2,7 @@
 import sys
 import pennylane as qml
 from pennylane import numpy as np
-
+from copy import deepcopy
 # DO NOT MODIFY any of these parameters
 a = 0.7
 b = -0.3
@@ -32,7 +32,78 @@ def natural_gradient(params):
     natural_grad = np.zeros(6)
 
     # QHACK #
+    N = 6
+    @qml.qnode(dev)
+    def qcirc(params):
+        """A PennyLane QNode that pairs the variational_circuit with probabilistic measurement."""
+        variational_circuit(params)
+        return qml.probs(range(0,3))
+    
+    # shifting amount for the gradients
+    twist  = np.pi/2
+    gradient = np.zeros([N] , dtype = np.float64)
+    
+    # Fubini-Study metric
+    F = np.zeros([N,N] , dtype = np.float64)
+    
+    initial_measurement = qcirc(params)
+    initial_state = deepcopy(dev.state)
+    
+    
 
+        
+    for i in range(N):
+         twisted_params = params.copy()
+         twisted_params[i] += twist
+        
+         grad_measurement_1 = qnode(twisted_params)
+         twisted_params[i] -= (2 * twist)
+        
+         grad_measurement_2 = qnode(twisted_params)
+         gradient[i] = (grad_measurement_1 - grad_measurement_2)/(2 * np.sin(twist))
+         for j in range(N):
+            twisted_params = params.copy()
+            
+            twisted_params[i] += twist
+            twisted_params[j] += twist
+            qcirc(twisted_params)
+            
+            stat_vec_1 = deepcopy(dev.state)
+            
+            twisted_params = params.copy()
+            twisted_params[i] -= twist
+            twisted_params[j] += twist
+            qcirc(twisted_params)
+            
+            stat_vec_2 = deepcopy(dev.state)
+            
+            twisted_params = params.copy()
+            
+            twisted_params[i] += twist
+            twisted_params[j] -= twist
+            qcirc(twisted_params)
+            stat_vec_3 = deepcopy(dev.state)
+            twisted_params = params.copy()
+            
+            twisted_params[i] -= twist
+            twisted_params[j] -= twist           
+            qcirc(twisted_params)
+            stat_vec_4 = deepcopy(dev.state)
+            # inner product of the acftual state and the pi/2 shifted state
+            metric1 = abs(  np.array(np.matrix(stat_vec_1).H).T.dot(initial_state))**2
+            metric2 = abs(  np.array(np.matrix(stat_vec_2).H).T.dot(initial_state))**2
+            metric3   = abs(  np.array(np.matrix(stat_vec_3).H).T.dot(initial_state))**2
+            metric4 =abs(  np.array(np.matrix(stat_vec_4).H).T.dot(initial_state))**2
+            
+            F[i,j] = -metric1+metric2 + metric3 -  metric4
+            F[i,j] /= 8
+            
+         
+    natural_grad = np.linalg.inv(F) @ gradient
+
+    # compare with the pennylane implementation
+    met_fn=qml.metric_tensor(qcirc)
+    met_fn(params)
     # QHACK #
 
     return natural_grad
